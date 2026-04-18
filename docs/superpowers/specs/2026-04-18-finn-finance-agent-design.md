@@ -226,7 +226,7 @@ CREATE TABLE credit_cards (
   created_at   TIMESTAMPTZ DEFAULT now()
 );
 
--- Seed data
+-- Seed data (closing_day starts NULL — learned from first PDF of each card)
 INSERT INTO credit_cards (name, due_day, is_default) VALUES
   ('Mastercard', 15, true),
   ('Visa',       25, false),
@@ -279,6 +279,18 @@ Finn: "Mastercard bill R$1,847 paid ✅
 ```
 
 Recorded as `type: card_payment` with `card: Mastercard`.
+
+### 7.3.1 Learning Closing Dates from PDFs
+
+`closing_day` starts as `NULL` for all cards. When you send a PDF invoice, Finn extracts the closing date from the statement header and updates the card record automatically:
+
+```
+→ PDF parsed → extract closing_date, due_date, total_amount
+→ UPDATE credit_cards SET closing_day = 16 WHERE name = 'Mastercard'
+→ Finn now knows the full billing cycle for future proactive alerts
+```
+
+No manual setup needed — each PDF teaches Finn the card's cycle.
 
 ### 7.4 Duplicate Detection (Manual Entry vs PDF Invoice)
 
