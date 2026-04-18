@@ -1,11 +1,17 @@
 import type { VocabularyEntry } from './types.js'
 
+function formatVocabEntry(v: VocabularyEntry): string {
+  const parts = [`"${v.term}" → category: ${v.category}`]
+  if (v.card) parts.push(`card: ${v.card}`)
+  if (v.cost_center) parts.push(`cost_center: ${v.cost_center}`)
+  parts.push(v.confidence >= 2 ? '(apply silently)' : '(apply but confirm)')
+  return `- ${parts.join(', ')}`
+}
+
 export function buildSystemPrompt(vocabulary: VocabularyEntry[]): string {
   const vocabSection =
     vocabulary.length > 0
-      ? `\n## Your Personal Vocabulary\nThe user uses these terms — map them automatically:\n${vocabulary
-          .map((v) => `- "${v.term}" → category: ${v.category}${v.card ? `, card: ${v.card}` : ''}${v.cost_center ? `, cost_center: ${v.cost_center}` : ''}${v.confidence >= 2 ? ' (apply silently)' : ' (apply but confirm)'}`)
-          .join('\n')}`
+      ? `\n## Your Personal Vocabulary\nThe user uses these terms — map them automatically:\n${vocabulary.map(formatVocabEntry).join('\n')}`
       : ''
 
   return `You are Finn 💰, a personal finance assistant accessible via WhatsApp.

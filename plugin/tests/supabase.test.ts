@@ -17,6 +17,8 @@ describe('supabase client', () => {
     process.env.SUPABASE_SERVICE_KEY = 'test-key'
 
     vi.resetModules()
-    await expect(import('../src/db/supabase.js')).rejects.toThrow('SUPABASE_URL')
+    const { db, _resetClient } = await import('../src/db/supabase.js')
+    _resetClient()
+    expect(() => db()).toThrow('SUPABASE_URL')
   })
 })
