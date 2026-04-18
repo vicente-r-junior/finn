@@ -23,7 +23,7 @@ The system is built entirely on **OpenClaw** (the challenge requirement), using 
 ```
 WhatsApp (Baileys)
     ↕
-OpenClaw Gateway  [Node.js, vicentejunior.tech, PM2]
+OpenClaw Gateway  [Node.js, YOUR_DOMAIN, PM2]
     ├── SOUL.md         — Finn's personality
     ├── AGENTS.md       — routing instructions
     ├── IDENTITY.md     — name, emoji, vibe
@@ -34,9 +34,9 @@ OpenClaw Gateway  [Node.js, vicentejunior.tech, PM2]
             ├── state.ts      — conversation state per phone
             ├── media.ts      — audio / PDF / image handling
             ├── tools/
-            │   ├── save-expense.ts
-            │   ├── update-expense.ts
-            │   ├── delete-expense.ts
+            │   ├── save-transaction.ts
+            │   ├── update-transaction.ts
+            │   ├── delete-transaction.ts
             │   └── query-spending.ts
             └── db/
                 └── supabase.ts
@@ -51,10 +51,10 @@ External services:
 
 | Component | Technology | Notes |
 |---|---|---|
-| VPS | Hostinger | vicentejunior.tech |
+| VPS | Hostinger | YOUR_DOMAIN |
 | WhatsApp | OpenClaw Baileys channel | QR code login, dedicated number |
 | Process manager | PM2 | Auto-restart, survives reboots |
-| SSL | nginx + certbot | HTTPS for vicentejunior.tech |
+| SSL | nginx + certbot | HTTPS for YOUR_DOMAIN |
 | Language model | gpt-4.1-mini | Text, vision, extraction |
 | Audio | whisper-1 | Transcription only |
 | Database | Supabase | Managed PostgreSQL |
@@ -115,9 +115,9 @@ OpenClaw calls this tool on every incoming WhatsApp message.
 3. Call gpt-4.1-mini with:
    - system_prompt (Finn's instructions, cost centers, categories)
    - full conversation history (last 20 messages)
-   - available tools: save_expense, update_expense, delete_expense, query_spending
+   - available tools: save_transaction, update_transaction, delete_transaction, query_spending
 4. Execute any tool calls the model requests
-5. If tool was save_expense → transition state to awaiting_confirm first
+5. If tool was save_transaction → transition state to awaiting_confirm first
 6. Return final text response
 7. Save updated state + history to Supabase
 ```
@@ -150,15 +150,15 @@ Stored in `conversation_state` table, keyed by phone number.
 
 ```
 idle
-  → expense input detected        → awaiting_confirm
+  → transaction input detected     → awaiting_confirm
   → edit/delete request           → awaiting_edit_confirm
   → query ("how much this month") → idle (query answered inline)
 
 awaiting_confirm
-  → "sim" / "yes" / "👍"          → save_expense → idle
+  → "sim" / "yes" / "👍"          → save_transaction → idle
   → "não" / "cancel" / "👎"       → discard → idle
-  → correction detected           → update pending_expense → awaiting_confirm
-  → new expense                   → overwrite pending → awaiting_confirm
+  → correction detected           → update pending_transaction → awaiting_confirm
+  → new transaction               → overwrite pending → awaiting_confirm
   → query                         → answer inline, stay in awaiting_confirm
 
 awaiting_edit_confirm
@@ -170,8 +170,8 @@ awaiting_edit_confirm
 ### Intent Classification
 
 On every message, gpt-4.1-mini classifies intent given the current state:
-- In `awaiting_confirm`: is this a confirmation, cancellation, correction, new expense, or query?
-- In `idle`: is this an expense log, a query, or an edit request?
+- In `awaiting_confirm`: is this a confirmation, cancellation, correction, new transaction, or query?
+- In `idle`: is this a transaction (expense or income), a query, or an edit request?
 
 The model never guesses — if intent is ambiguous, it asks one short question.
 
@@ -179,12 +179,14 @@ The model never guesses — if intent is ambiguous, it asks one short question.
 
 ## 6. Supabase Schema
 
-### expenses
+### transactions
 ```sql
-CREATE TABLE expenses (
+CREATE TABLE transactions (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone       TEXT NOT NULL,
-  amount      NUMERIC(10,2) NOT NULL,
+  type        TEXT NOT NULL DEFAULT 'expense'
+              CHECK (type IN ('expense','income')),
+  amount      NUMERIC(10,2) NOT NULL,  -- always positive; type determines direction
   description TEXT,
   category    TEXT NOT NULL,
   cost_center TEXT NOT NULL CHECK (cost_center IN ('Me','Lilian','Eddie','Apto Taman','Carro','Família')),
@@ -202,8 +204,8 @@ CREATE TABLE conversation_state (
   phone             TEXT PRIMARY KEY,
   state             TEXT NOT NULL DEFAULT 'idle'
                     CHECK (state IN ('idle','awaiting_confirm','awaiting_edit_confirm')),
-  pending_expense   JSONB,
-  target_expense_id UUID REFERENCES expenses(id),
+  pending_transaction   JSONB,
+  target_transaction_id UUID REFERENCES transactions(id),
   history           JSONB DEFAULT '[]',
   updated_at        TIMESTAMPTZ DEFAULT now()
 );
@@ -284,7 +286,7 @@ Finn:  Salvando... ✅ 23 despesas registradas!
 
 ```bash
 # 1. SSH into VPS
-ssh root@vicentejunior.tech
+ssh root@YOUR_DOMAIN
 
 # 2. Install Node 24
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
@@ -315,7 +317,7 @@ pm2 save && pm2 startup
 
 # 9. nginx + SSL
 sudo apt install nginx certbot python3-certbot-nginx
-certbot --nginx -d vicentejunior.tech
+certbot --nginx -d YOUR_DOMAIN
 ```
 
 ---
