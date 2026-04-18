@@ -1,5 +1,5 @@
 import { db } from '../db/supabase.js'
-import type { Transaction } from '../types.js'
+import type { Transaction, CostCenter, CardName } from '../types.js'
 
 export interface QueryParams {
   phone: string
@@ -48,8 +48,8 @@ export async function querySpending(params: QueryParams): Promise<QueryResult> {
     .lte('date', to)
 
   if (params.category) query = query.ilike('category', params.category)
-  if (params.cost_center) query = query.eq('cost_center', params.cost_center)
-  if (params.card) query = query.eq('card', params.card)
+  if (params.cost_center) query = query.eq('cost_center', params.cost_center as CostCenter)
+  if (params.card) query = query.eq('card', params.card as CardName)
   if (params.type) query = query.eq('type', params.type)
 
   const { data, error } = await query
