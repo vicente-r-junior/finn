@@ -183,9 +183,22 @@ The model never guesses — if intent is ambiguous, it asks one short question.
 
 ## 6. Supabase Schema
 
+All tables live in the `finn` schema — isolated from other projects in the same Supabase instance.
+
+```sql
+-- Run once before all other migrations
+CREATE SCHEMA IF NOT EXISTS finn;
+
+-- Required for Supabase JS client to find the schema
+-- Add to Supabase dashboard: Settings → API → Exposed schemas → add "finn"
+```
+
+> In the TypeScript plugin, the Supabase client is initialized with:
+> `createClient(url, key, { db: { schema: 'finn' } })`
+
 ### transactions
 ```sql
-CREATE TABLE transactions (
+CREATE TABLE finn.transactions (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone       TEXT NOT NULL,
   type        TEXT NOT NULL DEFAULT 'expense'
@@ -205,7 +218,7 @@ CREATE TABLE transactions (
 
 ### categories
 ```sql
-CREATE TABLE categories (
+CREATE TABLE finn.categories (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name       TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -221,7 +234,7 @@ Finn creates new categories on the fly during confirmation. The `category` field
 
 ### credit_cards
 ```sql
-CREATE TABLE credit_cards (
+CREATE TABLE finn.credit_cards (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name         TEXT NOT NULL UNIQUE,  -- 'Mastercard', 'Visa', 'Aeternum'
   due_day      INT NOT NULL,           -- day of month bill is due (vencimento)
@@ -239,7 +252,7 @@ INSERT INTO credit_cards (name, due_day, is_default) VALUES
 
 ### vocabulary
 ```sql
-CREATE TABLE vocabulary (
+CREATE TABLE finn.vocabulary (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone       TEXT NOT NULL,           -- per user
   term        TEXT NOT NULL,           -- user's word: "buteco", "ifood", "almoço"
@@ -264,7 +277,7 @@ Finn uses this table as the first lookup step before calling gpt-4.1-mini. If `c
 
 ### conversation_state
 ```sql
-CREATE TABLE conversation_state (
+CREATE TABLE finn.conversation_state (
   phone                 TEXT PRIMARY KEY,
   state                 TEXT NOT NULL DEFAULT 'idle'
                         CHECK (state IN ('idle','awaiting_confirm','awaiting_edit_confirm')),
