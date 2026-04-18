@@ -185,11 +185,12 @@ CREATE TABLE transactions (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone       TEXT NOT NULL,
   type        TEXT NOT NULL DEFAULT 'expense'
-              CHECK (type IN ('expense','income')),
+              CHECK (type IN ('expense','income','card_payment')),
   amount      NUMERIC(10,2) NOT NULL,  -- always positive; type determines direction
   description TEXT,
   category    TEXT NOT NULL,
   cost_center TEXT NOT NULL CHECK (cost_center IN ('Me','Lilian','Eddie','Apto Taman','Carro','Família')),
+  card        TEXT CHECK (card IN ('Mastercard','Visa','Aeternum')),  -- null = cash/pix
   date        DATE NOT NULL DEFAULT CURRENT_DATE,
   source      TEXT NOT NULL CHECK (source IN ('text','audio','pdf','image')),
   raw_input   TEXT,
@@ -198,22 +199,129 @@ CREATE TABLE transactions (
 );
 ```
 
+### categories
+```sql
+CREATE TABLE categories (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Seed data
+INSERT INTO categories (name) VALUES
+  ('Alimentação'),('Supermercado'),('Farmácia'),('Transporte'),
+  ('Saúde'),('Lazer'),('Educação'),('Moradia'),('Vestuário'),('Outros');
+```
+
+Finn creates new categories on the fly during confirmation. The `category` field in `transactions` stores the name as free text — no FK constraint, allowing flexibility.
+
+### credit_cards
+```sql
+CREATE TABLE credit_cards (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         TEXT NOT NULL UNIQUE,  -- 'Mastercard', 'Visa', 'Aeternum'
+  due_day      INT NOT NULL,           -- day of month bill is due (vencimento)
+  closing_day  INT,                    -- day of month statement closes (fechamento)
+  is_default   BOOLEAN DEFAULT false,  -- Mastercard = true
+  created_at   TIMESTAMPTZ DEFAULT now()
+);
+
+-- Seed data
+INSERT INTO credit_cards (name, due_day, is_default) VALUES
+  ('Mastercard', 15, true),
+  ('Visa',       25, false),
+  ('Aeternum',   10, false);
+```
+
 ### conversation_state
 ```sql
 CREATE TABLE conversation_state (
-  phone             TEXT PRIMARY KEY,
-  state             TEXT NOT NULL DEFAULT 'idle'
-                    CHECK (state IN ('idle','awaiting_confirm','awaiting_edit_confirm')),
+  phone                 TEXT PRIMARY KEY,
+  state                 TEXT NOT NULL DEFAULT 'idle'
+                        CHECK (state IN ('idle','awaiting_confirm','awaiting_edit_confirm')),
   pending_transaction   JSONB,
   target_transaction_id UUID REFERENCES transactions(id),
-  history           JSONB DEFAULT '[]',
-  updated_at        TIMESTAMPTZ DEFAULT now()
+  history               JSONB DEFAULT '[]',
+  updated_at            TIMESTAMPTZ DEFAULT now()
 );
 ```
 
 ---
 
-## 7. OpenAI Model Usage & Costs
+## 7. Credit Card Intelligence
+
+### 7.1 Card Resolution
+
+When a transaction is logged, Finn resolves the card using this priority order:
+
+1. **Explicit mention** — "mastercard", "master", "visa", "aeternum" → map to card name
+2. **No card mentioned** → assume **Mastercard** (default card)
+3. **Cash/Pix keywords** — "pix", "dinheiro", "débito", "cash" → `card = null`
+
+### 7.2 Due Date Awareness (Proactive Notifications)
+
+Finn warns 3 days before each card's due date with a spending summary:
+
+```
+Finn: "Your Mastercard bill is due in 3 days (15th).
+       Estimated total: R$2,340 (23 transactions since the 16th of last month).
+       Want a full breakdown?"
+```
+
+This is implemented as a daily cron job via PM2 that checks dates and sends a WhatsApp message if due date is within 3 days.
+
+### 7.3 Bill Payment Tracking
+
+```
+You:  "Paguei a fatura do Mastercard, R$1.847"
+Finn: "Mastercard bill R$1,847 paid ✅
+       Next closing: 16th. Next due: 15th of next month."
+```
+
+Recorded as `type: card_payment` with `card: Mastercard`.
+
+### 7.4 Duplicate Detection (Manual Entry vs PDF Invoice)
+
+When processing a PDF invoice, before saving each transaction Finn checks for duplicates:
+
+**Match criteria:** same `card` + amount within ±1% + date within ±3 days + similar description
+
+```
+Finn: "Found 23 transactions in this invoice.
+       Detected 3 already logged manually:
+
+       ⚠️  R$40.00 · Alimentação · Mastercard · 18/04 — already saved
+       ⚠️  R$134.50 · Supermercado · Mastercard · 15/04 — already saved
+       ⚠️  R$28.00 · Farmácia · Mastercard · 17/04 — already saved
+
+       Skip these 3 and save the remaining 20?"
+
+You:  "sim"
+Finn: → saves 20 new, skips 3 duplicates ✅
+```
+
+User can also override: "save all anyway" or "skip all" or "let me review each one."
+
+---
+
+## 8. Dynamic Categories
+
+Categories are stored in the `categories` table and seeded with 10 defaults. Finn creates new ones on demand:
+
+```
+You:  "Gastei 80 no pet shop"
+Finn: "R$80 · Pet Shop · Mastercard · Me · hoje — confirma?
+       (I'll create the new category 'Pet Shop' for you) ✅"
+You:  "sim"
+Finn: → INSERT INTO categories (name) VALUES ('Pet Shop')
+      → saves transaction with category = 'Pet Shop'
+```
+
+Finn normalizes category names (title case, trim spaces) before creating to avoid duplicates like "pet shop" vs "Pet Shop".
+
+---
+
+## 9. OpenAI Model Usage & Costs
 
 | Operation | Model | Estimated cost |
 |---|---|---|
