@@ -40,7 +40,8 @@ export function detectDuplicates(
     for (const ext of existing) {
       if (inc.card !== ext.card) continue
 
-      const amountDiff = Math.abs(inc.amount - ext.amount) / Math.max(inc.amount, ext.amount)
+      const maxAmount = Math.max(Math.abs(inc.amount), Math.abs(ext.amount))
+      const amountDiff = maxAmount === 0 ? 0 : Math.abs(inc.amount - ext.amount) / maxAmount
       if (amountDiff > 0.01) continue
 
       const incDate = new Date(inc.date).getTime()
@@ -72,12 +73,14 @@ export async function updateCardCycleFromPdf(
 }
 
 export async function getCardsNearDueDate(daysAhead = 3): Promise<Array<{ name: CardName; due_day: number }>> {
-  const today = new Date().getDate()
+  const now = new Date()
+  const today = now.getDate()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   const { data, error } = await db().from('credit_cards').select('name, due_day')
   if (error || !data) return []
 
   return (data as Array<{ name: CardName; due_day: number }>).filter((card) => {
-    const daysUntilDue = card.due_day >= today ? card.due_day - today : 30 - today + card.due_day
+    const daysUntilDue = card.due_day >= today ? card.due_day - today : daysInMonth - today + card.due_day
     return daysUntilDue <= daysAhead
   })
 }

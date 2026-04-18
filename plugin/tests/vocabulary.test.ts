@@ -11,6 +11,7 @@ vi.mock('../src/db/supabase.js', () => {
     const chain: any = {
       eq: () => makeChain(resolveValue),
       single: async () => ({ data: null, error: null }),
+      maybeSingle: async () => ({ data: null, error: null }),
       upsert: async () => ({ error: null }),
       then: (onFulfilled: any, onRejected: any) =>
         Promise.resolve(resolveValue).then(onFulfilled, onRejected),

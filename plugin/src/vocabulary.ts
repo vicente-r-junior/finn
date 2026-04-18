@@ -29,21 +29,15 @@ export async function learnMapping(
 ): Promise<void> {
   const normalized = normalizeTerm(term)
 
-  let newConfidence = confidenceDelta
-  try {
-    const { data: existing } = await db()
-      .from('vocabulary')
-      .select('id, confidence')
-      .eq('phone', phone)
-      .eq('term', normalized)
-      .single()
+  const { data: existing, error: fetchError } = await db()
+    .from('vocabulary')
+    .select('id, confidence')
+    .eq('phone', phone)
+    .eq('term', normalized)
+    .maybeSingle()
 
-    if (existing) {
-      newConfidence = (existing as any).confidence + confidenceDelta
-    }
-  } catch {
-    // Fall back to confidenceDelta if the existing check fails
-  }
+  if (fetchError) throw fetchError
+  const newConfidence = existing ? (existing as { id: string; confidence: number }).confidence + confidenceDelta : confidenceDelta
 
   await db().from('vocabulary').upsert(
     {
