@@ -111,15 +111,19 @@ OpenClaw calls this tool on every incoming WhatsApp message.
 
 ```
 1. Load conversation_state for this phone from Supabase
-2. Append new user message to history
-3. Call gpt-4.1-mini with:
+2. Load personal vocabulary for this phone from Supabase
+3. Append new user message to history
+4. Call gpt-4.1-mini with:
    - system_prompt (Finn's instructions, cost centers, categories)
+   - personal vocabulary injected as context: "User calls 'buteco' → Bar, 'almoço' → Alimentação"
    - full conversation history (last 20 messages)
    - available tools: save_transaction, update_transaction, delete_transaction, query_spending
-4. Execute any tool calls the model requests
-5. If tool was save_transaction → transition state to awaiting_confirm first
-6. Return final text response
-7. Save updated state + history to Supabase
+5. Execute any tool calls the model requests
+6. If tool was save_transaction → transition state to awaiting_confirm first
+7. After user confirms → learn: extract terms from description, upsert vocabulary
+8. After user corrects → update vocabulary mapping, reset confidence
+9. Return final text response
+10. Save updated state + history to Supabase
 ```
 
 ### 4.3 System Prompt
@@ -232,6 +236,31 @@ INSERT INTO credit_cards (name, due_day, is_default) VALUES
   ('Visa',       25, false),
   ('Aeternum',   10, false);
 ```
+
+### vocabulary
+```sql
+CREATE TABLE vocabulary (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone       TEXT NOT NULL,           -- per user
+  term        TEXT NOT NULL,           -- user's word: "buteco", "ifood", "almoço"
+  category    TEXT NOT NULL,           -- mapped category: "Bar", "Alimentação"
+  card        TEXT,                    -- optional: "uber" always → Mastercard
+  cost_center TEXT,                    -- optional: "escola" always → Eddie
+  confidence  INT DEFAULT 1,           -- increments each time this mapping is confirmed
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(phone, term)
+);
+```
+
+Finn uses this table as the first lookup step before calling gpt-4.1-mini. If `confidence >= 2` (confirmed at least twice), Finn applies the mapping silently. If `confidence = 1` (seen once), Finn applies it but mentions it: *"Mapeei 'buteco' como Bar — certo?"*
+
+**Learning triggers:**
+- User confirms a transaction → term extracted from description, mapping stored/reinforced
+- User corrects a category → existing mapping updated, confidence reset to 1
+- PDF invoice processed → merchant names normalized and mapped after user confirms
+
+**Normalization:** terms stored lowercase, accents stripped, trimmed — so "Almoço", "almoço", "ALMOÇO" all map to the same entry.
 
 ### conversation_state
 ```sql
