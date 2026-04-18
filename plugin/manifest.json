@@ -1,0 +1,12 @@
+{
+  "name": "finance-agent",
+  "version": "1.0.0",
+  "description": "Finn — personal finance assistant. Logs expenses, income, and card transactions via WhatsApp.",
+  "main": "dist/index.js",
+  "tools": [
+    {
+      "name": "finance_agent",
+      "description": "Routes WhatsApp messages to Finn, the personal finance assistant. Handles text, audio, images, and PDFs."
+    }
+  ]
+}
