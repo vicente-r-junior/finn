@@ -23,7 +23,7 @@ const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
           description: { type: 'string' },
           category: { type: 'string' },
           cost_center: { type: 'string', enum: ['Me', 'Lilian'] },
-          card: { type: 'string', enum: ['Mastercard', 'Visa', 'Aeternum'], nullable: true },
+          card: { type: 'string', enum: ['Mastercard', 'Visa', 'Aeternum', 'Itaú', 'Bradesco', 'Nu', 'C6'], nullable: true },
           date: { type: 'string', description: 'ISO date YYYY-MM-DD' },
           source: { type: 'string', enum: ['text', 'audio', 'pdf', 'image'] },
         },

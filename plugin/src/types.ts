@@ -2,12 +2,12 @@
 
 export type TransactionType = 'expense' | 'income' | 'card_payment'
 export type CostCenter = 'Me' | 'Lilian'
-export type CardName = 'Mastercard' | 'Visa' | 'Aeternum'
+export type CardName = 'Mastercard' | 'Visa' | 'Aeternum' | 'Itaú' | 'Bradesco' | 'Nu' | 'C6'
 export type MediaSource = 'text' | 'audio' | 'pdf' | 'image'
 export type ConversationStateType = 'idle' | 'awaiting_confirm' | 'awaiting_edit_confirm'
 
 export const COST_CENTERS: CostCenter[] = ['Me', 'Lilian']
-export const CARDS: CardName[] = ['Mastercard', 'Visa', 'Aeternum']
+export const CARDS: CardName[] = ['Mastercard', 'Visa', 'Aeternum', 'Itaú', 'Bradesco', 'Nu', 'C6']
 export const CASH_KEYWORDS = ['pix', 'dinheiro', 'débito', 'debito', 'cash', 'especie', 'espécie']
 export const DEFAULT_CARD: CardName = 'Mastercard'
 
