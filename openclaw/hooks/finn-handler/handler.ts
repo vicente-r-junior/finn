@@ -1,7 +1,7 @@
 // Finn Finance Agent — Message Hook
 // Fires on every message:received event and calls runAgent directly
 
-import { runAgent } from '../../../plugin/src/agent.js'
+import { runAgent } from '/root/.openclaw/extensions/finance-agent/dist/agent.js'
 
 const handler = async (event: any) => {
   if (event.type !== 'message' || event.action !== 'received') return
