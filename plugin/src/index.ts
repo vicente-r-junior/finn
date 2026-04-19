@@ -1,10 +1,10 @@
 import { runAgent } from './agent.js'
 import type { AgentInput } from './types.js'
 
-// OpenClaw plugin entry point
-// Uses register(api) pattern — called by OpenClaw gateway on startup
+// OpenClaw plugin entry point — CommonJS compatible
+// OpenClaw calls register(api) on startup
 
-export default function register(api: any) {
+function register(api: any): void {
   api.registerTool({
     name: 'finance_agent',
     description:
@@ -39,3 +39,10 @@ export default function register(api: any) {
     },
   })
 }
+
+// Support both named export and module.exports for maximum compatibility
+export { register }
+export default register
+module.exports = register
+module.exports.register = register
+module.exports.default = register
