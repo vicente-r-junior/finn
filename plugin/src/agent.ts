@@ -108,7 +108,7 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
   state = appendMessage(state, 'user', userText)
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: buildSystemPrompt(vocabulary) },
+    { role: 'system', content: buildSystemPrompt(vocabulary, new Date().toISOString().split('T')[0]) },
     ...state.history.map((m) => ({ role: m.role, content: m.content }) as OpenAI.Chat.ChatCompletionMessageParam),
   ]
 
