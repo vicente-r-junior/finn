@@ -1,5 +1,4 @@
 import { runAgent } from './agent.js'
-import type { AgentInput } from './types.js'
 
 function register(api: any): void {
   console.log('[finance-agent] register() called — plugin initializing')
@@ -7,48 +6,41 @@ function register(api: any): void {
   console.log('[finance-agent] SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'MISSING')
   console.log('[finance-agent] SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING')
 
-  api.registerTool({
-    name: 'finance_agent',
-    description:
-      'Personal finance assistant Finn. MUST be called for every WhatsApp message. Handles expense/income logging, credit card tracking, and spending queries.',
-    parameters: {
-      type: 'object',
-      properties: {
-        phone: {
-          type: 'string',
-          description: 'Sender WhatsApp number with country code (e.g. +5511999990000)',
-        },
-        message: {
-          type: 'string',
-          description: 'The exact text of the message',
-        },
-        mediaType: {
-          type: 'string',
-          enum: ['text', 'audio', 'image', 'pdf'],
-          description: 'Type of media (default: text)',
-        },
-        mediaData: {
-          type: 'string',
-          description: 'Base64 encoded content for audio/image/pdf only',
-        },
-      },
-      required: ['phone', 'message'],
-    },
+  // Register before_agent_reply hook — intercepts WhatsApp messages BEFORE
+  // the built-in web-auto-reply LLM runs. First handler to return { handled: true } wins,
+  // so the LLM is completely bypassed and only Finn's reply reaches the user.
+  api.on('before_agent_reply', async (event: any, ctx: any) => {
+    const channelId = (ctx.channelId ?? ctx.messageProvider ?? '').toLowerCase()
 
-    handler: async (params: AgentInput) => {
-      console.log('[finance-agent] handler called! phone:', params.phone, 'message:', params.message)
-      try {
-        const result = await runAgent(params)
-        console.log('[finance-agent] reply:', result.reply)
-        return result.reply
-      } catch (err) {
-        console.error('[finance-agent] ERROR:', err)
-        return 'Sorry, I had an internal error. Please try again.'
-      }
-    },
+    // Only handle WhatsApp, skip heartbeats
+    if (!channelId.includes('whatsapp')) return
+    if (ctx.trigger === 'heartbeat') return
+
+    const message = (event.cleanedBody ?? '').trim()
+    if (!message) return
+
+    // Extract phone from sessionKey: could be "+55...", "whatsapp:+55...", "personal:+55..."
+    const rawKey = ctx.sessionKey ?? ''
+    const phone = rawKey.includes(':') ? rawKey.split(':').slice(1).join(':') : rawKey
+
+    console.log(`[finn] before_agent_reply — channelId=${channelId} sessionKey=${rawKey} phone=${phone} msg="${message.substring(0, 60)}"`)
+
+    if (!phone) {
+      console.log('[finn] WARNING: no phone found in sessionKey, skipping')
+      return
+    }
+
+    try {
+      const result = await runAgent({ phone, message, mediaType: 'text' })
+      console.log(`[finn] reply: ${result.reply.substring(0, 120)}`)
+      return { handled: true, reply: { text: result.reply } }
+    } catch (err) {
+      console.error('[finn] ERROR in before_agent_reply:', err)
+      return { handled: true, reply: { text: 'Sorry, something went wrong. Please try again.' } }
+    }
   })
 
-  console.log('[finance-agent] finance_agent tool registered ✓')
+  console.log('[finance-agent] before_agent_reply hook registered ✓')
 }
 
 export { register }
