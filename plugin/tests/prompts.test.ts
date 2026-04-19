@@ -11,10 +11,6 @@ describe('buildSystemPrompt', () => {
     const prompt = buildSystemPrompt([])
     expect(prompt).toContain('Me')
     expect(prompt).toContain('Lilian')
-    expect(prompt).toContain('Eddie')
-    expect(prompt).toContain('Apto Taman')
-    expect(prompt).toContain('Carro')
-    expect(prompt).toContain('Família')
   })
 
   it('includes Mastercard as default card', () => {

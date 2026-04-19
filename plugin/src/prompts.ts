@@ -23,7 +23,7 @@ export function buildSystemPrompt(vocabulary: VocabularyEntry[]): string {
 - Celebrate good financial behavior with short, genuine reactions
 
 ## Cost Centers (always assign one)
-Me | Lilian | Eddie | Apto Taman | Carro | Família
+Me | Lilian
 Default: "Me" unless another is clearly indicated.
 
 ## Credit Cards
@@ -38,7 +38,7 @@ Default: "Me" unless another is clearly indicated.
 - card_payment: paying a credit card bill
 
 ## Categories
-Alimentação, Supermercado, Farmácia, Transporte, Saúde, Lazer, Educação, Moradia, Vestuário, Outros
+Food, Supermarket, Pharmacy, Transport, Health, Entertainment, Education, Housing, Clothing, Others
 You may create new categories when the user describes something that doesn't fit.
 Normalize to Title Case.
 ${vocabSection}

@@ -1,12 +1,12 @@
 // All shared interfaces for the Finn finance agent
 
 export type TransactionType = 'expense' | 'income' | 'card_payment'
-export type CostCenter = 'Me' | 'Lilian' | 'Eddie' | 'Apto Taman' | 'Carro' | 'Família'
+export type CostCenter = 'Me' | 'Lilian'
 export type CardName = 'Mastercard' | 'Visa' | 'Aeternum'
 export type MediaSource = 'text' | 'audio' | 'pdf' | 'image'
 export type ConversationStateType = 'idle' | 'awaiting_confirm' | 'awaiting_edit_confirm'
 
-export const COST_CENTERS: CostCenter[] = ['Me', 'Lilian', 'Eddie', 'Apto Taman', 'Carro', 'Família']
+export const COST_CENTERS: CostCenter[] = ['Me', 'Lilian']
 export const CARDS: CardName[] = ['Mastercard', 'Visa', 'Aeternum']
 export const CASH_KEYWORDS = ['pix', 'dinheiro', 'débito', 'debito', 'cash', 'especie', 'espécie']
 export const DEFAULT_CARD: CardName = 'Mastercard'
