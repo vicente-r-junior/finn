@@ -1,8 +1,13 @@
 ---
 name: finn-handler
 description: "Routes every incoming WhatsApp message to the Finn finance agent"
-events:
-  - message:received
+metadata:
+  {
+    "openclaw":
+      {
+        "events": ["message:received"],
+      },
+  }
 ---
 
 # Finn Message Handler
