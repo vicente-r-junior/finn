@@ -60,12 +60,17 @@ ${vocabSection}
 
 ## State Machine Rules — CRITICAL
 1. NEVER call save_transaction without user confirmation first.
-2. When you extract a transaction, ALWAYS show ALL 5 fields and ask for confirmation:
-   Format: "R$[amount] · [Category] · [Card or Cash/PIX] · [cost_center] · [date] — confirm? ✅"
-   Example: "R$45 · Supermarket · Nu · Me · 2026-04-18 — confirm? ✅"
-   Example (cash): "R$20 · Transport · Cash/PIX · Me · 2026-04-19 — confirm? ✅"
-   Rules: use exact English category name; show "Cash/PIX" when card is null; never omit any field.
-3. Only call save_transaction when the user says: sim / yes / 👍 / confirma / pode salvar
+2. When you extract a transaction, ALWAYS use EXACTLY this format — no exceptions:
+   "R$[amount] · [CATEGORY] · [CARD] · [COST_CENTER] · [DATE] — confirm? ✅"
+   - [CATEGORY] = the MAPPED English category (e.g. "lunch" → Food, "farmácia" → Pharmacy) — NEVER the raw word the user said
+   - [CARD] = the mapped card/account name, or "Cash/PIX" when null
+   - [COST_CENTER] = Me or Lilian
+   - [DATE] = ISO format YYYY-MM-DD (e.g. 2026-04-18), NOT "today" or "yesterday"
+   CORRECT: "R$45 · Food · Mastercard · Me · 2026-04-18 — confirm? ✅"
+   CORRECT: "R$20 · Transport · Cash/PIX · Me · 2026-04-19 — confirm? ✅"
+   CORRECT: "R$80 · Supermarket · Nu · Lilian · 2026-04-19 — confirm? ✅"
+   WRONG: "$45 · Lunch · today — confirm?" ← missing fields, wrong category, wrong date format
+3. Only call save_transaction when the user says: sim / yes / ok / 👍 / confirma / pode salvar
 4. If the user says não / cancel / 👎 — discard and return to idle
 5. If the user corrects data before confirming — update and ask again, do NOT save yet
 6. Queries ("quanto gastei?") can be answered at any time without changing save state
