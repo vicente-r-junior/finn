@@ -1,0 +1,11 @@
+{
+  "id": "finance-agent",
+  "name": "Finn Finance Agent",
+  "version": "1.0.0",
+  "description": "Personal finance assistant. Logs expenses, income, and card transactions via WhatsApp.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
