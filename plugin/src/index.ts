@@ -25,9 +25,15 @@ function register(api: any): void {
     }
 
     const message = (event.content ?? '').trim()
-    const isAudio = message === '<media:audio>' && event.mediaPath && (event.mediaType ?? '').startsWith('audio')
+    const isAudio = message === '<media:audio>'
 
     if (!message && !isAudio) return
+
+    // Log full event shape for audio to find the real property names
+    if (isAudio) {
+      console.log('[finn] AUDIO EVENT KEYS:', JSON.stringify(Object.keys(event)))
+      console.log('[finn] AUDIO EVENT:', JSON.stringify(event, null, 2))
+    }
 
     console.log(`[finn] before_dispatch — phone=${phone} msg="${message.substring(0, 60)}" isAudio=${isAudio}`)
 
