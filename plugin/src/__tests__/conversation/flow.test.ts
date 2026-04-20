@@ -48,4 +48,75 @@ describe('conversation flow', () => {
     expect(reply2).toBeTruthy()
     expect(reply2).not.toMatch(/error|failed|falhou/i)
   })
+
+  it('SCENARIO 1 — "spent 80 today" defaults to Mastercard, no card question', { timeout: 30000 }, async () => {
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('OPENAI_API_KEY not set — skipping')
+      return
+    }
+
+    const turn1 = await runAgent({
+      phone: TEST_PHONE,
+      message: 'spent 80 today',
+      mediaType: 'text',
+    })
+
+    console.log('[TEST] reply to "spent 80 today":', turn1.reply)
+
+    // Agent MUST ask what it was for (no description) — but NOT ask about card
+    const asksAboutCard = /which card|qual cart[ã|a]o|what card/i.test(turn1.reply)
+    expect(asksAboutCard).toBe(false)
+
+    // Provide description
+    const turn2 = await runAgent({
+      phone: TEST_PHONE,
+      message: 'pharmacy',
+      mediaType: 'text',
+    })
+
+    console.log('[TEST] reply after "pharmacy":', turn2.reply)
+
+    // Now agent should show summary WITH Mastercard, no card question
+    const asksAboutCard2 = /which card|qual cart[ã|a]o|what card/i.test(turn2.reply)
+    expect(asksAboutCard2).toBe(false)
+    expect(turn2.reply).toMatch(/Mastercard/i)
+    expect(turn2.reply).toMatch(/R\$80/)
+  })
+
+  it('SCENARIO 2 — new category "Insurance" is accepted without rejection', { timeout: 30000 }, async () => {
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('OPENAI_API_KEY not set — skipping')
+      return
+    }
+
+    // User logs an expense with an unlisted category
+    const turn1 = await runAgent({
+      phone: TEST_PHONE,
+      message: 'paid 350 for insurance',
+      mediaType: 'text',
+    })
+
+    console.log('[TEST] reply to "paid 350 for insurance":', turn1.reply)
+
+    // Agent must NOT say it only accepts certain categories
+    const rejectsCategory = /only accept|I only|not a valid|categorias aceitas|categorias válidas/i.test(turn1.reply)
+    expect(rejectsCategory).toBe(false)
+
+    // Agent should show 350 and Insurance in the summary
+    expect(turn1.reply).toMatch(/R\$350/)
+    expect(turn1.reply).toMatch(/Insurance/i)
+    expect(turn1.reply).toMatch(/Mastercard/i)
+
+    // Confirm
+    const turn2 = await runAgent({
+      phone: TEST_PHONE,
+      message: 'yes',
+      mediaType: 'text',
+    })
+
+    console.log('[TEST] reply after confirming insurance:', turn2.reply)
+
+    expect(turn2.reply).toBeTruthy()
+    expect(turn2.reply).not.toMatch(/error|failed|falhou/i)
+  })
 })

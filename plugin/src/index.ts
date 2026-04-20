@@ -24,12 +24,31 @@ function register(api: any): void {
     }
 
     const message = (event.content ?? '').trim()
-    if (!message) return
 
-    console.log(`[finn] before_dispatch — phone=${phone} msg="${message.substring(0, 60)}"`)
+    // DEBUG: log full event shape to discover audio/media fields
+    const hasAttachment = !message || event.mediaType || event.attachments || event.mediaUrl || event.audioUrl
+    if (hasAttachment) {
+      console.log('[finn] DEBUG audio event:', JSON.stringify({
+        mediaType: event.mediaType,
+        hasContent: !!event.content,
+        attachments: event.attachments,
+        mediaUrl: event.mediaUrl,
+        audioUrl: event.audioUrl,
+        mimetype: event.mimetype,
+        mimeType: event.mimeType,
+        hasMedia: event.hasMedia,
+        type: event.type,
+        messageType: event.messageType,
+        keys: Object.keys(event),
+      }, null, 2))
+    }
+
+    if (!message && !event.mediaType && !event.attachments && !event.hasMedia) return
+
+    console.log(`[finn] before_dispatch — phone=${phone} msg="${message.substring(0, 60)}" mediaType=${event.mediaType ?? 'none'}`)
 
     try {
-      const result = await runAgent({ phone, message, mediaType: 'text' })
+      const result = await runAgent({ phone, message: message || '[audio]', mediaType: 'text' })
       console.log(`[finn] reply: ${result.reply.substring(0, 120)}`)
       return { handled: true, text: result.reply }
     } catch (err) {
