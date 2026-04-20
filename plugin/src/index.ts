@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs'
 import { runAgent } from './agent.js'
 
 function register(api: any): void {
@@ -24,31 +25,32 @@ function register(api: any): void {
     }
 
     const message = (event.content ?? '').trim()
+    const isAudio = message === '<media:audio>' && event.mediaPath && (event.mediaType ?? '').startsWith('audio')
 
-    // DEBUG: log full event shape to discover audio/media fields
-    const hasAttachment = !message || event.mediaType || event.attachments || event.mediaUrl || event.audioUrl
-    if (hasAttachment) {
-      console.log('[finn] DEBUG audio event:', JSON.stringify({
-        mediaType: event.mediaType,
-        hasContent: !!event.content,
-        attachments: event.attachments,
-        mediaUrl: event.mediaUrl,
-        audioUrl: event.audioUrl,
-        mimetype: event.mimetype,
-        mimeType: event.mimeType,
-        hasMedia: event.hasMedia,
-        type: event.type,
-        messageType: event.messageType,
-        keys: Object.keys(event),
-      }, null, 2))
-    }
+    if (!message && !isAudio) return
 
-    if (!message && !event.mediaType && !event.attachments && !event.hasMedia) return
-
-    console.log(`[finn] before_dispatch — phone=${phone} msg="${message.substring(0, 60)}" mediaType=${event.mediaType ?? 'none'}`)
+    console.log(`[finn] before_dispatch — phone=${phone} msg="${message.substring(0, 60)}" isAudio=${isAudio}`)
 
     try {
-      const result = await runAgent({ phone, message: message || '[audio]', mediaType: 'text' })
+      let agentInput: Parameters<typeof runAgent>[0] = { phone, message, mediaType: 'text' }
+
+      if (isAudio) {
+        try {
+          const audioBuffer = readFileSync(event.mediaPath)
+          agentInput = {
+            phone,
+            message: '',
+            mediaType: 'audio',
+            mediaData: audioBuffer.toString('base64'),
+          }
+          console.log(`[finn] audio file loaded: ${event.mediaPath} (${audioBuffer.length} bytes)`)
+        } catch (readErr) {
+          console.error('[finn] failed to read audio file:', readErr)
+          return { handled: true, text: "I couldn't access your voice note. Please try again or type your message." }
+        }
+      }
+
+      const result = await runAgent(agentInput)
       console.log(`[finn] reply: ${result.reply.substring(0, 120)}`)
       return { handled: true, text: result.reply }
     } catch (err) {
