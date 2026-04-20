@@ -16,7 +16,7 @@ export async function transcribeAudio(
   const response = await openai.audio.transcriptions.create({
     model: 'whisper-1',
     file,
-    language: 'pt',
+    // no language lock — Whisper auto-detects PT-BR, EN, and others
   })
 
   return response.text
