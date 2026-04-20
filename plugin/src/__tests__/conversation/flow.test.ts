@@ -10,7 +10,7 @@ afterAll(async () => {
 })
 
 describe('conversation flow', () => {
-  it('logs 189 on lunch — defaults to Mastercard without asking', async () => {
+  it('logs 189 on lunch — defaults to Mastercard without asking', { timeout: 30000 }, async () => {
     if (!process.env.OPENAI_API_KEY) {
       console.warn('OPENAI_API_KEY not set — skipping conversation test')
       return

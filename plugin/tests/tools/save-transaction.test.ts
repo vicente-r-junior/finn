@@ -1,17 +1,40 @@
 import { describe, it, expect, vi } from 'vitest'
 
+// Helper: chainable mock that supports .select().ilike().maybeSingle() and .insert().select().single()
+function makeChain(finalFn: () => Promise<any>) {
+  const chain: any = {}
+  const methods = ['select', 'ilike', 'single', 'maybeSingle', 'eq', 'insert']
+  methods.forEach((m) => {
+    chain[m] = (..._args: any[]) => {
+      if (m === 'single' || m === 'maybeSingle') return finalFn()
+      return chain
+    }
+  })
+  return chain
+}
+
 vi.mock('../../src/db/supabase.js', () => ({
   db: () => ({
-    from: (table: string) => ({
-      insert: async (data: any) => {
-        if (table === 'transactions') return { data: [{ id: 'uuid-1', ...data }], error: null }
-        if (table === 'categories') return { error: null }
-        return { error: null }
-      },
-      select: () => ({
-        ilike: () => ({ single: async () => ({ data: { id: 'cat-1', name: 'Alimentação' }, error: null }) }),
-      }),
-    }),
+    from: (table: string) => {
+      if (table === 'categories') {
+        return {
+          select: () => ({
+            ilike: () => ({
+              maybeSingle: async () => ({ data: { id: 'cat-1', name: 'Food' }, error: null }),
+            }),
+          }),
+          insert: async () => ({ error: null }),
+        }
+      }
+      // transactions table: insert().select().single() returns the row
+      return {
+        insert: (data: any) => ({
+          select: () => ({
+            single: async () => ({ data: { id: 'uuid-1', ...data }, error: null }),
+          }),
+        }),
+      }
+    },
   }),
 }))
 
@@ -38,12 +61,25 @@ describe('saveTransaction', () => {
     vi.resetModules()
     vi.doMock('../../src/db/supabase.js', () => ({
       db: () => ({
-        from: (table: string) => ({
-          insert: async (data: any) => ({ data: [{ id: 'uuid-2', ...data }], error: null }),
-          select: () => ({
-            ilike: () => ({ single: async () => ({ data: null, error: { code: 'PGRST116' } }) }),
-          }),
-        }),
+        from: (table: string) => {
+          if (table === 'categories') {
+            return {
+              select: () => ({
+                ilike: () => ({
+                  maybeSingle: async () => ({ data: null, error: null }),
+                }),
+              }),
+              insert: async () => ({ error: null }),
+            }
+          }
+          return {
+            insert: (data: any) => ({
+              select: () => ({
+                single: async () => ({ data: { id: 'uuid-2', ...data }, error: null }),
+              }),
+            }),
+          }
+        },
       }),
     }))
     const { saveTransaction } = await import('../../src/tools/save-transaction.js')
