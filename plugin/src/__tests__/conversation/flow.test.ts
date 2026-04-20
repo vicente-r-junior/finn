@@ -83,6 +83,30 @@ describe('conversation flow', () => {
     expect(turn2.reply).toMatch(/R\$80/)
   })
 
+  it('SCENARIO 3 — audio message shows transcription echo with mic emoji', { timeout: 30000 }, async () => {
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('OPENAI_API_KEY not set — skipping')
+      return
+    }
+
+    // Simulate what the agent will receive after Whisper transcribes a voice note
+    const turn1 = await runAgent({
+      phone: TEST_PHONE,
+      message: '[AUDIO] gastei noventa no mercado hoje',
+      mediaType: 'text', // already transcribed — just testing the echo behaviour
+    })
+
+    console.log('[TEST] reply to audio message:', turn1.reply)
+
+    // Must start with the mic echo
+    expect(turn1.reply).toMatch(/🎙/)
+    // Must show the transcription in italic
+    expect(turn1.reply).toMatch(/_".*gastei.*mercado.*"_/i)
+    // Must still show the transaction summary
+    expect(turn1.reply).toMatch(/R\$90/)
+    expect(turn1.reply).toMatch(/Mastercard/i)
+  })
+
   it('SCENARIO 2 — new category "Insurance" is accepted without rejection', { timeout: 30000 }, async () => {
     if (!process.env.OPENAI_API_KEY) {
       console.warn('OPENAI_API_KEY not set — skipping')
