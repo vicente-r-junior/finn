@@ -89,11 +89,11 @@ describe('conversation flow', () => {
       return
     }
 
-    // Simulate what the agent will receive after Whisper transcribes a voice note
+    // Simulate a pre-transcribed audio — mediaType:'audio' triggers the echo logic
     const turn1 = await runAgent({
       phone: TEST_PHONE,
       message: '[AUDIO] gastei noventa no mercado hoje',
-      mediaType: 'text', // already transcribed — just testing the echo behaviour
+      mediaType: 'audio', // no mediaData = skip Whisper, use message directly
     })
 
     console.log('[TEST] reply to audio message:', turn1.reply)
@@ -105,6 +105,37 @@ describe('conversation flow', () => {
     // Must still show the transaction summary
     expect(turn1.reply).toMatch(/R\$90/)
     expect(turn1.reply).toMatch(/Mastercard/i)
+  })
+
+  it('SCENARIO 4 — audio confirmation "yes all set" still shows echo', { timeout: 30000 }, async () => {
+    if (!process.env.OPENAI_API_KEY) { console.warn('skipping'); return }
+
+    // First log a transaction so there's something to confirm
+    await runAgent({ phone: TEST_PHONE, message: '50 on food', mediaType: 'text' })
+
+    const turn = await runAgent({
+      phone: TEST_PHONE,
+      message: '[AUDIO] yes all set',
+      mediaType: 'audio',
+    })
+
+    console.log('[TEST] reply to audio "yes all set":', turn.reply)
+    expect(turn.reply).toMatch(/🎙/)
+    expect(turn.reply).toMatch(/_".*yes all set.*"_/i)
+  })
+
+  it('SCENARIO 5 — audio query "how much did I spend yesterday" shows echo', { timeout: 30000 }, async () => {
+    if (!process.env.OPENAI_API_KEY) { console.warn('skipping'); return }
+
+    const turn = await runAgent({
+      phone: TEST_PHONE,
+      message: '[AUDIO] how much did I spend yesterday',
+      mediaType: 'audio',
+    })
+
+    console.log('[TEST] reply to audio query:', turn.reply)
+    expect(turn.reply).toMatch(/🎙/)
+    expect(turn.reply).toMatch(/_".*how much.*"_/i)
   })
 
   it('SCENARIO 2 — new category "Insurance" is accepted without rejection', { timeout: 30000 }, async () => {

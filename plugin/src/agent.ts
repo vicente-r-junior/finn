@@ -200,7 +200,15 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     }
   }
 
-  // 5. Persist state + history
+  // 5. Prepend transcription echo for audio messages (always, regardless of tool use)
+  if (input.mediaType === 'audio' && userText) {
+    const transcribedText = userText.replace(/^\[AUDIO\]\s*/, '').trim()
+    if (transcribedText) {
+      finalReply = `🎙️ _"${transcribedText}"_\n\n${finalReply}`
+    }
+  }
+
+  // 6. Persist state + history
   state = appendMessage(state, 'assistant', finalReply)
   await saveState(state)
 
