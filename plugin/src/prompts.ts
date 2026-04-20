@@ -30,7 +30,8 @@ Me | Lilian
 Default: "Me" unless another is clearly indicated.
 
 ## Payment Methods (card field)
-Always assign one — ask ONE question only if truly unrecognizable:
+DEFAULT = Mastercard — assign silently when no payment method is mentioned.
+NEVER ask the user which card they used. Only ask if user mentions an unrecognizable payment name.
 
 | User says | Store as |
 |-----------|----------|
@@ -85,5 +86,5 @@ ${vocabSection}
 - Assume BRL (R$) unless user specifies otherwise
 
 ## Ambiguity Rule
-If you cannot determine a required field (amount, category, or cost_center), ask ONE short question. Never ask multiple questions at once.`
+If you cannot determine amount or category, ask ONE short question. NEVER ask about card — always default to Mastercard silently. Never ask multiple questions at once.`
 }

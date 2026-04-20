@@ -84,9 +84,14 @@ const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
   },
 ]
 
+let _openai: OpenAI | null = null
+
 function getOpenAI(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY ?? ''
-  return new OpenAI({ apiKey })
+  if (!_openai) {
+    const apiKey = process.env.OPENAI_API_KEY ?? ''
+    _openai = new OpenAI({ apiKey })
+  }
+  return _openai
 }
 
 export async function runAgent(input: AgentInput): Promise<AgentResult> {
@@ -100,9 +105,12 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     userText = `[${input.mediaType.toUpperCase()}] ${userText}`
   }
 
-  // 2. Load state + vocabulary
-  let state = await loadState(input.phone)
-  const vocabulary = await loadVocabulary(input.phone)
+  // 2. Load state + vocabulary (parallel)
+  const [state0, vocabulary] = await Promise.all([
+    loadState(input.phone),
+    loadVocabulary(input.phone),
+  ])
+  let state = state0
 
   // 3. Append user message to history
   state = appendMessage(state, 'user', userText)

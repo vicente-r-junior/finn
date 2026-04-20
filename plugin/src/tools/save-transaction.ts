@@ -16,7 +16,7 @@ async function ensureCategoryExists(name: string): Promise<void> {
     .from('categories')
     .select('id')
     .ilike('name', normalized)
-    .single()
+    .maybeSingle()
 
   if (!data) {
     await db().from('categories').insert({ name: normalized })
@@ -43,7 +43,10 @@ export async function saveTransaction(
       source: params.source,
       raw_input: params.raw_input,
     })
+    .select()
+    .single()
 
-  if (error || !data) throw new Error(`Failed to save transaction: ${error?.message}`)
-  return (Array.isArray(data) ? data[0] : data) as Transaction
+  if (error) throw new Error(`Failed to save transaction: ${error.message}`)
+  if (!data) throw new Error('Failed to save transaction: no data returned')
+  return data as Transaction
 }
