@@ -42,6 +42,8 @@ export async function saveTransaction(
       date: params.date,
       source: params.source,
       raw_input: params.raw_input,
+      ...(params.due_date !== undefined ? { due_date: params.due_date } : {}),
+      ...(params.billing_cycle !== undefined ? { billing_cycle: params.billing_cycle } : {}),
     })
     .select()
     .single()

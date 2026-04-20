@@ -8,6 +8,7 @@ export interface QueryParams {
   cost_center?: string
   card?: string
   type?: 'expense' | 'income' | 'card_payment'
+  view?: 'competencia' | 'caixa'
 }
 
 export interface QueryResult {
@@ -40,12 +41,16 @@ function getPeriodDates(period: QueryParams['period']): { from: string; to: stri
 export async function querySpending(params: QueryParams): Promise<QueryResult> {
   const { from, to } = getPeriodDates(params.period ?? 'month')
 
+  // 'caixa' view filters by due_date (when money leaves the bank)
+  // 'competencia' view (default) filters by date (when purchase was made)
+  const dateField = params.view === 'caixa' ? 'due_date' : 'date'
+
   let query = db()
     .from('transactions')
     .select('*')
     .eq('phone', params.phone)
-    .gte('date', from)
-    .lte('date', to)
+    .gte(dateField, from)
+    .lte(dateField, to)
 
   if (params.category) query = query.ilike('category', params.category)
   if (params.cost_center) query = query.eq('cost_center', params.cost_center as CostCenter)

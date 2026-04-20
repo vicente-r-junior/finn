@@ -22,6 +22,8 @@ export interface PendingTransaction {
   date: string           // ISO: YYYY-MM-DD
   source: MediaSource
   raw_input: string
+  due_date?: string | null      // YYYY-MM-DD
+  billing_cycle?: string | null // YYYY-MM
 }
 
 export interface Transaction extends PendingTransaction {
@@ -29,6 +31,35 @@ export interface Transaction extends PendingTransaction {
   phone: string
   created_at: string
   updated_at: string
+  due_date?: string | null
+  billing_cycle?: string | null
+}
+
+export interface InvoiceItem {
+  date: string           // DD/MM from invoice
+  isoDate: string        // YYYY-MM-DD (inferred using invoice year)
+  description: string    // raw merchant name
+  installment: string | null  // e.g. "07/10"
+  amount: number
+  isPayment: boolean     // true = skip (negative)
+  isCharge: boolean      // true = skip (ENCARGOS, JUROS, MULTA)
+  category: string | null     // auto-suggested
+  cost_center: 'Me' | 'Lilian'   // from cardholder name
+  card: string           // 'Visa', 'Mastercard', 'Aeternum'
+  cardHolder: string     // raw name from PDF
+  due_date: string       // YYYY-MM-DD from invoice
+  billing_cycle: string  // YYYY-MM
+}
+
+export interface ParsedInvoice {
+  card: string           // 'Visa' | 'Mastercard' | 'Aeternum'
+  cardNumber: string     // partial e.g. '9435'
+  holderName: string
+  dueDate: string        // YYYY-MM-DD
+  billingCycle: string   // YYYY-MM
+  closingDate: string    // YYYY-MM-DD
+  totalAmount: number
+  items: InvoiceItem[]   // all items including skipped ones
 }
 
 export interface ConversationStateRow {

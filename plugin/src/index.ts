@@ -1,6 +1,9 @@
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
 import { runAgent } from './agent.js'
+import { parsePdf } from './media.js'
+import { parseInvoice } from './tools/parse-invoice.js'
+import { findDuplicates } from './tools/find-duplicates.js'
 
 const MEDIA_INBOUND_DIR = '/root/.openclaw/media/inbound'
 
@@ -8,6 +11,18 @@ function findLatestAudioFile(): string | null {
   try {
     const files = readdirSync(MEDIA_INBOUND_DIR)
       .filter(f => f.endsWith('.ogg') || f.endsWith('.mp3') || f.endsWith('.m4a') || f.endsWith('.opus'))
+      .map(f => ({ path: join(MEDIA_INBOUND_DIR, f), mtime: statSync(join(MEDIA_INBOUND_DIR, f)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime)
+    return files[0]?.path ?? null
+  } catch {
+    return null
+  }
+}
+
+function findLatestPdfFile(): string | null {
+  try {
+    const files = readdirSync(MEDIA_INBOUND_DIR)
+      .filter(f => f.endsWith('.pdf'))
       .map(f => ({ path: join(MEDIA_INBOUND_DIR, f), mtime: statSync(join(MEDIA_INBOUND_DIR, f)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime)
     return files[0]?.path ?? null
@@ -42,9 +57,20 @@ function register(api: any): void {
     const message = (event.content ?? '').trim()
     const isAudio = message === '<media:audio>'
 
-    if (!message && !isAudio) return
+    // PDF detection: known content value is '<media:document>', but we log any unrecognized
+    // <media:...> events to discover the exact value when user sends PDF via WhatsApp.
+    const isPdf =
+      message === '<media:document>' ||
+      (message.startsWith('<media:') && !isAudio && (event.content ?? '').toLowerCase().includes('pdf'))
 
-    console.log(`[finn] before_dispatch — phone=${phone} msg="${message.substring(0, 60)}" isAudio=${isAudio}`)
+    if (!message && !isAudio && !isPdf) return
+
+    console.log(`[finn] before_dispatch — phone=${phone} msg="${message.substring(0, 60)}" isAudio=${isAudio} isPdf=${isPdf}`)
+
+    // Log full event shape for unknown media types so we can discover the PDF event format
+    if (message.startsWith('<media:') && !isAudio && !isPdf) {
+      console.log('[finn] DEBUG unknown media event:', JSON.stringify(event, null, 2))
+    }
 
     try {
       let agentInput: Parameters<typeof runAgent>[0] = { phone, message, mediaType: 'text' }
@@ -67,6 +93,45 @@ function register(api: any): void {
         } catch (readErr) {
           console.error('[finn] failed to read audio file:', readErr)
           return { handled: true, text: "I couldn't access your voice note. Please try again or type your message." }
+        }
+      } else if (isPdf) {
+        const pdfPath = findLatestPdfFile()
+        if (!pdfPath) {
+          console.error('[finn] pdf: no file found in inbound dir')
+          return { handled: true, text: "Não consegui acessar o PDF. Tente enviar novamente." }
+        }
+        try {
+          console.log(`[finn] pdf: processing ${pdfPath}`)
+          const pdfBuffer = readFileSync(pdfPath)
+          const pdfText = await parsePdf(pdfBuffer)
+          console.log(`[finn] pdf: extracted ${pdfText.length} chars`)
+
+          const invoice = parseInvoice(pdfText)
+          console.log(`[finn] pdf: parsed invoice — card=${invoice.card} items=${invoice.items.length} total=${invoice.totalAmount}`)
+
+          const duplicates = await findDuplicates(phone, invoice.items)
+          console.log(`[finn] pdf: found ${duplicates.length} duplicates`)
+
+          const invoicePayload = JSON.stringify({
+            card: invoice.card,
+            cardNumber: invoice.cardNumber,
+            holderName: invoice.holderName,
+            dueDate: invoice.dueDate,
+            billingCycle: invoice.billingCycle,
+            closingDate: invoice.closingDate,
+            totalAmount: invoice.totalAmount,
+            items: invoice.items,
+            duplicates: duplicates.map(d => ({ existingId: d.existingId, description: d.item.description, amount: d.item.amount })),
+          })
+
+          agentInput = {
+            phone,
+            message: `[PDF_INVOICE] ${invoicePayload}`,
+            mediaType: 'text',
+          }
+        } catch (pdfErr) {
+          console.error('[finn] failed to process PDF:', pdfErr)
+          return { handled: true, text: "Não consegui processar o PDF da fatura. Tente novamente." }
         }
       }
 

@@ -7,7 +7,8 @@ import { saveTransaction } from './tools/save-transaction.js'
 import { querySpending } from './tools/query-spending.js'
 import { updateTransaction, findTransaction } from './tools/update-transaction.js'
 import { deleteTransaction } from './tools/delete-transaction.js'
-import type { AgentInput, AgentResult } from './types.js'
+import { saveBulkTransactions } from './tools/save-bulk-transactions.js'
+import type { AgentInput, AgentResult, InvoiceItem } from './types.js'
 
 const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
   {
@@ -39,7 +40,7 @@ const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'query_spending',
-      description: 'Query the user spending history. Use for questions like "how much did I spend this month?"',
+      description: 'Query the user spending history. Use for questions like "how much did I spend this month?" or "how much leaves my account in May?" (use caixa view for the latter).',
       parameters: {
         type: 'object',
         properties: {
@@ -48,8 +49,56 @@ const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
           cost_center: { type: 'string' },
           card: { type: 'string' },
           type: { type: 'string', enum: ['expense', 'income', 'card_payment'] },
+          view: {
+            type: 'string',
+            enum: ['competencia', 'caixa'],
+            description: 'competencia (default): filter by purchase date. caixa: filter by due_date (when money leaves bank account).',
+          },
         },
         required: ['period'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'save_bulk_transactions',
+      description: 'Save all confirmed invoice items from a PDF import in bulk.',
+      parameters: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            description: 'Array of InvoiceItem objects from the parsed PDF',
+            items: {
+              type: 'object',
+              properties: {
+                date: { type: 'string' },
+                isoDate: { type: 'string' },
+                description: { type: 'string' },
+                installment: { type: 'string', nullable: true },
+                amount: { type: 'number' },
+                isPayment: { type: 'boolean' },
+                isCharge: { type: 'boolean' },
+                category: { type: 'string', nullable: true },
+                cost_center: { type: 'string', enum: ['Me', 'Lilian'] },
+                card: { type: 'string' },
+                cardHolder: { type: 'string' },
+                due_date: { type: 'string' },
+                billing_cycle: { type: 'string' },
+              },
+              required: ['date', 'isoDate', 'description', 'amount', 'isPayment', 'isCharge', 'cost_center', 'card', 'cardHolder', 'due_date', 'billing_cycle'],
+            },
+          },
+          card: { type: 'string', description: 'Card name for reference' },
+          billing_cycle: { type: 'string', description: 'YYYY-MM billing cycle' },
+          approved_categories: {
+            type: 'object',
+            description: 'Map of item index to category override',
+            additionalProperties: { type: 'string' },
+          },
+        },
+        required: ['items'],
       },
     },
   },
@@ -186,6 +235,12 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
         } else if (toolCall.function.name === 'delete_transaction') {
           await deleteTransaction(args.transaction_id)
           toolResult = JSON.stringify({ success: true })
+          state.state = 'idle'
+        } else if (toolCall.function.name === 'save_bulk_transactions') {
+          const items: InvoiceItem[] = args.items ?? []
+          const approvedCategories: Record<number, string> = args.approved_categories ?? {}
+          const result = await saveBulkTransactions(input.phone, items, approvedCategories)
+          toolResult = JSON.stringify({ success: true, ...result })
           state.state = 'idle'
         }
       } catch (err) {

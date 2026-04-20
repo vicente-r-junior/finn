@@ -1,5 +1,9 @@
 import OpenAI from 'openai'
 import pdfParse from 'pdf-parse'
+import { spawnSync } from 'child_process'
+import { writeFileSync, readFileSync, unlinkSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 
 function getOpenAI(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY ?? ''
@@ -48,8 +52,45 @@ export async function parseImage(imageUrlOrBase64: string): Promise<string> {
   return response.choices[0]?.message?.content ?? ''
 }
 
+export async function decryptPdf(buffer: Buffer, passwords: string[] = ['21357', '']): Promise<Buffer> {
+  // Check if qpdf is available
+  const which = spawnSync('which', ['qpdf'], { encoding: 'utf8' })
+  if (which.status !== 0) {
+    // qpdf not found — return original buffer (might be unprotected)
+    return buffer
+  }
+
+  const tmpIn = join(tmpdir(), `finn-pdf-in-${Date.now()}.pdf`)
+  const tmpOut = join(tmpdir(), `finn-pdf-out-${Date.now()}.pdf`)
+
+  try {
+    writeFileSync(tmpIn, buffer)
+
+    for (const password of passwords) {
+      const args = [
+        `--password=${password}`,
+        '--decrypt',
+        tmpIn,
+        tmpOut,
+      ]
+      const result = spawnSync('qpdf', args, { encoding: 'utf8' })
+      if (result.status === 0) {
+        const decrypted = readFileSync(tmpOut)
+        return decrypted
+      }
+    }
+
+    // All passwords failed — return original buffer (might be unprotected)
+    return buffer
+  } finally {
+    try { unlinkSync(tmpIn) } catch { /* ignore */ }
+    try { unlinkSync(tmpOut) } catch { /* ignore */ }
+  }
+}
+
 export async function parsePdf(pdfBuffer: Buffer): Promise<string> {
-  const result = await pdfParse(pdfBuffer)
+  const decrypted = await decryptPdf(pdfBuffer)
+  const result = await pdfParse(decrypted)
   return result.text
 }
 

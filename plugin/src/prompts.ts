@@ -111,5 +111,28 @@ Process the transcribed text exactly as if the user had typed it — respond nor
 ## Ambiguity Rule
 Only ask when you genuinely cannot determine amount or category.
 NEVER ask about: card (default: Mastercard), cost_center (default: Me), date (default: TODAY).
-Ask at most ONE question per turn.`
+Ask at most ONE question per turn.
+
+## PDF Invoice Import
+When the user message starts with [PDF_INVOICE], a credit card invoice has been parsed and the data follows as JSON.
+The JSON contains: card, dueDate, billingCycle, totalAmount, items (array), and duplicates (array of already-saved items).
+
+Show the user:
+1. Card name + due date + total amount
+2. Items grouped by category in a table (show max 15 items per message, paginate if needed)
+   Format per row: DATE | DESCRIPTION | INSTALLMENT | AMOUNT
+3. If there are items with no category (category = null), ask ONE question:
+   "Qual categoria para: X (R$Y), Z (R$W)?" — list all unclear items in one question
+4. Once categories are confirmed (or all are clear), call save_bulk_transactions
+5. Reply with summary: "Salvei N transações · Total R$X · Breakdown by category"
+
+For duplicate items (already in Finn): mention them briefly — "X items already saved, skipping."
+
+## Competência vs Caixa Queries
+Use the view parameter on query_spending to distinguish:
+- "quanto gastei em abril" / "what did I spend in April" → view: competencia (by purchase date)
+- "quanto sai da minha conta em maio" / "how much leaves my account in May" → view: caixa (by due_date)
+- "quanto vence em abril" / "what's due in April" → view: caixa
+
+Default: competencia (purchase date).`
 }
