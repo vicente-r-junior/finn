@@ -1,5 +1,20 @@
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync, statSync } from 'fs'
+import { join } from 'path'
 import { runAgent } from './agent.js'
+
+const MEDIA_INBOUND_DIR = '/root/.openclaw/media/inbound'
+
+function findLatestAudioFile(): string | null {
+  try {
+    const files = readdirSync(MEDIA_INBOUND_DIR)
+      .filter(f => f.endsWith('.ogg') || f.endsWith('.mp3') || f.endsWith('.m4a') || f.endsWith('.opus'))
+      .map(f => ({ path: join(MEDIA_INBOUND_DIR, f), mtime: statSync(join(MEDIA_INBOUND_DIR, f)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime)
+    return files[0]?.path ?? null
+  } catch {
+    return null
+  }
+}
 
 function register(api: any): void {
   console.log('[finance-agent] register() called — plugin initializing')
@@ -29,27 +44,26 @@ function register(api: any): void {
 
     if (!message && !isAudio) return
 
-    // Log full event shape for audio to find the real property names
-    if (isAudio) {
-      console.log('[finn] AUDIO EVENT KEYS:', JSON.stringify(Object.keys(event)))
-      console.log('[finn] AUDIO EVENT:', JSON.stringify(event, null, 2))
-    }
-
     console.log(`[finn] before_dispatch — phone=${phone} msg="${message.substring(0, 60)}" isAudio=${isAudio}`)
 
     try {
       let agentInput: Parameters<typeof runAgent>[0] = { phone, message, mediaType: 'text' }
 
       if (isAudio) {
+        const audioPath = findLatestAudioFile()
+        if (!audioPath) {
+          console.error('[finn] audio: no file found in inbound dir')
+          return { handled: true, text: "I couldn't access your voice note. Please try again or type your message." }
+        }
         try {
-          const audioBuffer = readFileSync(event.mediaPath)
+          const audioBuffer = readFileSync(audioPath)
           agentInput = {
             phone,
             message: '',
             mediaType: 'audio',
             mediaData: audioBuffer.toString('base64'),
           }
-          console.log(`[finn] audio file loaded: ${event.mediaPath} (${audioBuffer.length} bytes)`)
+          console.log(`[finn] audio loaded: ${audioPath} (${audioBuffer.length} bytes)`)
         } catch (readErr) {
           console.error('[finn] failed to read audio file:', readErr)
           return { handled: true, text: "I couldn't access your voice note. Please try again or type your message." }
