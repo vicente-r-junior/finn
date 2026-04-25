@@ -132,7 +132,7 @@ describe('parseInvoice', () => {
 CARTAO DE CREDITO
 1234.XXXX.XXXX.9435VISA
 
-Titular: VICENTE JUNIOR
+Titular: JOHN DOE
 
 Vencimento: 15/05/2026
 Emissão: 10/04/2026
@@ -169,11 +169,11 @@ Total: 1.580,00
     expect(result.billingCycle).toBe('2026-04')
   })
 
-  it('marks payment items correctly', () => {
+  it('excludes payment lines from items (they are not saved as expenses)', () => {
     const result = parseInvoice(FIXTURE_TEXT)
+    // Payment lines (PAGAMENTO EFETUADO) are skipped — only expenses and charges go into items
     const payments = result.items.filter(i => i.isPayment)
-    expect(payments.length).toBeGreaterThan(0)
-    expect(payments[0].description).toMatch(/PAGAMENTO/i)
+    expect(payments.length).toBe(0)
   })
 
   it('marks charge items correctly', () => {
@@ -189,7 +189,7 @@ Total: 1.580,00
   })
 
   it('assigns cost_center Lilian for Lilian holder', () => {
-    const lilianText = FIXTURE_TEXT.replace('VICENTE JUNIOR', 'LILIAN GUERRA')
+    const lilianText = FIXTURE_TEXT.replace('JOHN DOE', 'JANE DOE')
     const result = parseInvoice(lilianText)
     const normal = result.items.find(i => !i.isPayment && !i.isCharge)
     expect(normal?.cost_center).toBe('Lilian')
@@ -220,7 +220,7 @@ Total: 1.580,00
 
   it('returns all parsed lines as items', () => {
     const result = parseInvoice(FIXTURE_TEXT)
-    // Fixture has 11 lines, all should parse
-    expect(result.items.length).toBe(FIXTURE_LINES.length)
+    // Fixture has 11 lines; payment lines are excluded from items, so 10 remain (11 - 1 payment)
+    expect(result.items.length).toBe(FIXTURE_LINES.length - 1)
   })
 })

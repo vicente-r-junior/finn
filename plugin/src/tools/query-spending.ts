@@ -28,7 +28,13 @@ function getPeriodDates(period: QueryParams['period']): { from: string; to: stri
     return { from: from.toISOString().split('T')[0], to }
   }
   if (period === 'month') {
-    const from = new Date(now.getFullYear(), now.getMonth(), 1)
+    // Use a 60-day rolling window instead of calendar-month start.
+    // Credit card purchases are typically made 30–45 days before the invoice
+    // due date, so "this month's spending" includes last month's purchases.
+    // Example: Transport bought on 2026-03-08 (Aeternum), due 2026-04-10 →
+    // should appear when asking "how much on Transport this month?" in April.
+    const from = new Date(now)
+    from.setDate(from.getDate() - 60)
     return { from: from.toISOString().split('T')[0], to }
   }
   if (period === 'year') {

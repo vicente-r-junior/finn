@@ -18,6 +18,7 @@ export async function findTransaction(
 }
 
 export async function updateTransaction(
+  phone: string,
   id: string,
   fields: Partial<Pick<Transaction, 'amount' | 'category' | 'cost_center' | 'card' | 'date' | 'description'>>
 ): Promise<Transaction> {
@@ -25,6 +26,7 @@ export async function updateTransaction(
     .from('transactions')
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', id)
+    .eq('phone', phone)   // ownership guard — prevent cross-user mutations
     .select()
     .single()
 

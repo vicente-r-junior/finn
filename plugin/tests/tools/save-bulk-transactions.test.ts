@@ -13,7 +13,7 @@ function makeItem(overrides: Partial<InvoiceItem> = {}): InvoiceItem {
     category: 'Pet',
     cost_center: 'Me',
     card: 'Visa',
-    cardHolder: 'VICENTE JUNIOR',
+    cardHolder: 'JOHN DOE',
     due_date: '2026-05-15',
     billing_cycle: '2026-04',
     ...overrides,
@@ -59,14 +59,16 @@ describe('saveBulkTransactions', () => {
       makeItem({ category: 'Pet', amount: 80 }),
       makeItem({ category: 'Streaming', amount: 44.90, description: 'NETFLIX' }),
       makeItem({ isPayment: true, amount: 1340.84, description: 'PAGAMENTO' }),
-      makeItem({ isCharge: true, amount: 72.94, description: 'ENCARGOS' }),
+      makeItem({ isCharge: true, amount: 72.94, description: 'ENCARGOS', category: 'Charge' }),
     ]
 
     const result = await saveBulkTransactions('+5511999990000', items, {})
-    expect(result.saved).toBe(2)
-    expect(result.total).toBe(2)
+    // charges are now saved (isCharge items included, only isPayment skipped)
+    expect(result.saved).toBe(3)
+    expect(result.total).toBe(3)
     expect(result.breakdown['Pet']).toBeCloseTo(80)
     expect(result.breakdown['Streaming']).toBeCloseTo(44.90)
+    expect(result.breakdown['Charge']).toBeCloseTo(72.94)
   })
 
   it('applies approved categories override', async () => {
@@ -82,13 +84,13 @@ describe('saveBulkTransactions', () => {
     expect(result.breakdown['Supermarket']).toBeCloseTo(99)
   })
 
-  it('returns empty result when all items are skipped', async () => {
+  it('returns empty result when all items are payments', async () => {
     vi.doMock('../../src/db/supabase.js', makeDbMock)
 
     const { saveBulkTransactions } = await import('../../src/tools/save-bulk-transactions.js')
     const items = [
       makeItem({ isPayment: true }),
-      makeItem({ isCharge: true }),
+      makeItem({ isPayment: true }),
     ]
 
     const result = await saveBulkTransactions('+5511999990000', items, {})

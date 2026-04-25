@@ -13,7 +13,7 @@ function makeItem(overrides: Partial<InvoiceItem> = {}): InvoiceItem {
     category: 'Pet',
     cost_center: 'Me',
     card: 'Visa',
-    cardHolder: 'VICENTE JUNIOR',
+    cardHolder: 'JOHN DOE',
     due_date: '2026-05-15',
     billing_cycle: '2026-04',
     ...overrides,

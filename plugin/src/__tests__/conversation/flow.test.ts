@@ -154,7 +154,7 @@ describe('conversation flow', () => {
     console.log('[TEST] reply to "paid 350 for insurance":', turn1.reply)
 
     // Agent must NOT say it only accepts certain categories
-    const rejectsCategory = /only accept|I only|not a valid|categorias aceitas|categorias válidas/i.test(turn1.reply)
+    const rejectsCategory = /only accept|I only|not a valid|invalid category/i.test(turn1.reply)
     expect(rejectsCategory).toBe(false)
 
     // Agent should show 350 and Insurance in the summary

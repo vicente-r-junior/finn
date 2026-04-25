@@ -61,14 +61,93 @@ export function detectDuplicates(
   return matches
 }
 
+/**
+ * Given a card name and a transaction date, look up the card's closing_day and due_day
+ * from the credit_cards table and return the inferred billing_cycle and due_date.
+ *
+ * Logic:
+ *   txDay <= closing_day  → current month's cycle, due next month
+ *   txDay >  closing_day  → next month's cycle,    due month after next
+ */
+export async function inferBillingInfo(
+  cardName: CardName,
+  transactionDate: string  // YYYY-MM-DD
+): Promise<{ billing_cycle: string; due_date: string } | null> {
+  const { data, error } = await db()
+    .from('credit_cards')
+    .select('closing_day, due_day, next_closing_date')
+    .eq('name', cardName)
+    .maybeSingle()
+
+  if (error || !data) return null
+  const { closing_day, due_day, next_closing_date } = data as {
+    closing_day: number | null
+    due_day: number | null
+    next_closing_date: string | null  // YYYY-MM-DD
+  }
+  if (!due_day) return null
+
+  const [y, m, d] = transactionDate.split('-').map(Number)
+  const txTime = new Date(transactionDate).getTime()
+
+  // If we have the exact next closing date from the last PDF, use it directly.
+  // Expense before or on next_closing_date → belongs to that closing's cycle.
+  // Expense after next_closing_date → belongs to the cycle after.
+  if (next_closing_date) {
+    const nextClose = new Date(next_closing_date)
+    const nextCloseTime = nextClose.getTime()
+
+    let cycleYear: number, cycleMonth: number
+    if (txTime <= nextCloseTime) {
+      // This cycle: billing_cycle = month of next_closing_date
+      cycleYear = nextClose.getFullYear()
+      cycleMonth = nextClose.getMonth() + 1
+    } else {
+      // Next cycle: billing_cycle = month after next_closing_date
+      cycleYear = nextClose.getFullYear()
+      cycleMonth = nextClose.getMonth() + 2
+      if (cycleMonth > 12) { cycleMonth = 1; cycleYear++ }
+    }
+
+    let dueYear = cycleYear
+    let dueMonth = cycleMonth + 1
+    if (dueMonth > 12) { dueMonth = 1; dueYear++ }
+
+    const billing_cycle = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}`
+    const due_date = `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(due_day).padStart(2, '0')}`
+    return { billing_cycle, due_date }
+  }
+
+  // Fallback: use closing_day integer only
+  if (!closing_day) return null
+
+  let cycleYear = y
+  let cycleMonth = d <= closing_day ? m : m + 1
+  if (cycleMonth > 12) { cycleMonth = 1; cycleYear++ }
+
+  let dueYear = cycleYear
+  let dueMonth = cycleMonth + 1
+  if (dueMonth > 12) { dueMonth = 1; dueYear++ }
+
+  const billing_cycle = `${cycleYear}-${String(cycleMonth).padStart(2, '0')}`
+  const due_date = `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(due_day).padStart(2, '0')}`
+
+  return { billing_cycle, due_date }
+}
+
 export async function updateCardCycleFromPdf(
   cardName: CardName,
   closingDay: number,
-  dueDay: number
+  dueDay: number,
+  nextClosingDate?: string  // YYYY-MM-DD — "Previsão prox. Fechamento"
 ): Promise<void> {
   await db()
     .from('credit_cards')
-    .update({ closing_day: closingDay, due_day: dueDay })
+    .update({
+      closing_day: closingDay,
+      due_day: dueDay,
+      ...(nextClosingDate ? { next_closing_date: nextClosingDate } : {}),
+    })
     .eq('name', cardName)
 }
 

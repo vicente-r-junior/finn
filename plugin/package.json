@@ -4,7 +4,9 @@
   "description": "Finn — personal finance agent for OpenClaw",
   "main": "dist/index.js",
   "openclaw": {
-    "extensions": ["./dist/index.js"]
+    "extensions": [
+      "./dist/index.js"
+    ]
   },
   "scripts": {
     "build": "tsc",
@@ -17,7 +19,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "openai": "^4.52.0",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

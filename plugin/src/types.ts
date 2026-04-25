@@ -40,9 +40,12 @@ export interface InvoiceItem {
   isoDate: string        // YYYY-MM-DD (inferred using invoice year)
   description: string    // raw merchant name
   installment: string | null  // e.g. "07/10"
-  amount: number
+  amount: number         // positive for charges/expenses; negative for credits (e.g. Saldo financiado)
   isPayment: boolean     // true = skip (negative)
-  isCharge: boolean      // true = skip (ENCARGOS, JUROS, MULTA)
+  isCharge: boolean      // true = ENCARGOS, JUROS, MULTA — shown but flagged
+  isInternational: boolean    // true = paid in foreign currency (USD, EUR, etc.)
+  originalCurrency?: string   // e.g. 'USD', 'EUR'
+  originalAmount?: number     // amount in original currency
   category: string | null     // auto-suggested
   cost_center: 'Me' | 'Lilian'   // from cardholder name
   card: string           // 'Visa', 'Mastercard', 'Aeternum'
@@ -58,7 +61,12 @@ export interface ParsedInvoice {
   dueDate: string        // YYYY-MM-DD
   billingCycle: string   // YYYY-MM
   closingDate: string    // YYYY-MM-DD
-  totalAmount: number
+  totalAmount: number           // "Total desta fatura" — net amount due
+  currentChargesTotal: number   // "Lançamentos atuais" — new charges this cycle (items should match this)
+  saldoFinanciado: number       // "Saldo financiado" — negative = credit (overpayment), positive = carried debit
+  encargosFinanciamento: number // "Encargos (financiamento + moratório)" — interest on financed balance
+  paymentReceived: number       // "Pagamento(s) recebido(s)" — fallback for invoices using this format
+  nextClosingDate?: string     // "Previsão prox. Fechamento" — YYYY-MM-DD, used to keep closing_day current
   items: InvoiceItem[]   // all items including skipped ones
 }
 
@@ -97,6 +105,26 @@ export interface CreditCard {
 export interface Category {
   id: string
   name: string
+}
+
+export interface BankTransaction {
+  date: string           // YYYY-MM-DD
+  description: string    // cleaned historico from PDF
+  amount: number         // always positive, computed from saldo change
+  type: TransactionType  // expense | income | card_payment
+  category: string       // auto-suggested
+  card: string           // 'Bradesco' | 'Itaú' | 'Nu' | 'C6'
+  due_date: string       // same as date (bank = cash basis)
+  billing_cycle: string  // YYYY-MM of the transaction
+}
+
+export interface ParsedStatement {
+  bank: string           // 'Bradesco'
+  account: string        // 'Agência: 2329 | Conta: 289142-5'
+  periodStart: string    // YYYY-MM-DD
+  periodEnd: string      // YYYY-MM-DD
+  openingBalance: number
+  transactions: BankTransaction[]
 }
 
 export interface AgentInput {

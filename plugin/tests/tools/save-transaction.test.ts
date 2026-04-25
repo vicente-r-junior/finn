@@ -26,6 +26,15 @@ vi.mock('../../src/db/supabase.js', () => ({
           insert: async () => ({ error: null }),
         }
       }
+      if (table === 'credit_cards') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { closing_day: 25, due_day: 10 }, error: null }),
+            }),
+          }),
+        }
+      }
       // transactions table: insert().select().single() returns the row
       return {
         insert: (data: any) => ({
@@ -70,6 +79,15 @@ describe('saveTransaction', () => {
                 }),
               }),
               insert: async () => ({ error: null }),
+            }
+          }
+          if (table === 'credit_cards') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: { closing_day: 25, due_day: 10 }, error: null }),
+                }),
+              }),
             }
           }
           return {

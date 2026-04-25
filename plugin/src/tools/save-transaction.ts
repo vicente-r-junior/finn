@@ -1,4 +1,5 @@
 import { db } from '../db/supabase.js'
+import { inferBillingInfo } from '../cards.js'
 import type { PendingTransaction, Transaction } from '../types.js'
 
 function toTitleCase(str: string): string {
@@ -29,6 +30,18 @@ export async function saveTransaction(
   const category = toTitleCase(params.category)
   await ensureCategoryExists(category)
 
+  // Auto-infer billing_cycle and due_date for credit card transactions
+  // when they weren't explicitly provided (i.e. manual text/audio entries)
+  let due_date = params.due_date
+  let billing_cycle = params.billing_cycle
+  if (params.card && due_date === undefined && billing_cycle === undefined) {
+    const inferred = await inferBillingInfo(params.card, params.date)
+    if (inferred) {
+      due_date = inferred.due_date
+      billing_cycle = inferred.billing_cycle
+    }
+  }
+
   const { data, error } = await db()
     .from('transactions')
     .insert({
@@ -42,8 +55,8 @@ export async function saveTransaction(
       date: params.date,
       source: params.source,
       raw_input: params.raw_input,
-      ...(params.due_date !== undefined ? { due_date: params.due_date } : {}),
-      ...(params.billing_cycle !== undefined ? { billing_cycle: params.billing_cycle } : {}),
+      ...(due_date !== undefined ? { due_date } : {}),
+      ...(billing_cycle !== undefined ? { billing_cycle } : {}),
     })
     .select()
     .single()

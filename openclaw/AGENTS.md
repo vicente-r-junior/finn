@@ -18,9 +18,9 @@ Reply to the user with EXACTLY what `finance_agent` returns. Do not add anything
 ## Examples
 
 User sends: "spent 30 on lunch"
-→ Call finance_agent({ phone: "+553491623351", message: "spent 30 on lunch", mediaType: "text" })
+→ Call finance_agent({ phone: "+5511999990000", message: "spent 30 on lunch", mediaType: "text" })
 → Reply with whatever finance_agent returns
 
 User sends: "how much did I spend this week?"
-→ Call finance_agent({ phone: "+553491623351", message: "how much did I spend this week?", mediaType: "text" })
+→ Call finance_agent({ phone: "+5511999990000", message: "how much did I spend this week?", mediaType: "text" })
 → Reply with whatever finance_agent returns
