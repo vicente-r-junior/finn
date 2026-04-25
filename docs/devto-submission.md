@@ -59,8 +59,8 @@ Finn:  ✅ Saved!
 Voice notes work the same way — Finn echoes the transcription before acting:
 
 ```
-You:   🎙️ [audio: "gastei noventa no mercado hoje"]
-Finn:  🎙️ _"gastei noventa no mercado hoje"_
+You:   🎙️ [audio: "spent ninety at the grocery store today"]
+Finn:  🎙️ _"spent ninety at the grocery store today"_
 
        $90 · Groceries · Mastercard · Me · 2026-04-22 — confirm? ✅
 
@@ -111,45 +111,45 @@ Finn:  ✅ Deleted.
 You forward the invoice PDF to the WhatsApp chat. Finn parses it, shows you every line, resolves unknown categories, and bulk-saves on one "yes".
 
 ```
-You:   [sends Itaú Mastercard invoice PDF]
+You:   [sends Mastercard invoice PDF]
 
-Finn:  📄 Mastercard · Due 2026-04-10 · $4,782.24 · 29 items (27 new · 2 skipped)
+Finn:  📄 Mastercard · Due 2026-04-10 · $2,340.00 · 18 items (16 new · 2 skipped)
 
-       📊 Resumo da Fatura
-       Lançamentos: $5,193.48 · Saldo financiado (crédito): -$1,340.84 · Encargos: +$929.60 · Total: $4,782.24
+       📊 Invoice Summary
+       Purchases: $2,680.00 · Financed balance (credit): -$520.00 · Interest: +$180.00 · Total due: $2,340.00
 
        1. ✅ UBER*TRIP
-          Mar 15 · $34.90 · Transport · Me
+          Mar 12 · $18.50 · Transport · Me
 
        2. ✅ NETFLIX.COM
-          Mar 16 · $55.90 · Entertainment · Me
+          Mar 13 · $15.99 · Entertainment · Me
 
-       3. ✅ AMAZON PRIME*AN22Y
-          Mar 17 · $79.30 · Shopping · Me (intl · USD 14.99)
+       3. ✅ AMAZON PRIME
+          Mar 14 · $42.30 · Shopping · Me (intl · USD 7.99)
 
-       4. ❓ MP*CBRDOC
-          Mar 18 · $69.98 · ❓ · Me
+       4. ❓ SQ*DOWNTOWN MKT
+          Mar 15 · $34.00 · ❓ · Me
 
-       5. ✅ POSTO IPIRANGA
-          Mar 20 · $180.00 · Transport · Me
+       5. ✅ SHELL GAS STATION
+          Mar 17 · $95.00 · Transport · Me
 
-       6. ✅ GOL LINHAS AEREAS 01/03
-          Mar 22 · $420.00 · Travel · Me
+       6. ✅ DELTA AIRLINES 01/03
+          Mar 19 · $320.00 · Travel · Me
        ...
 
-       ❓ What category for: #4 MP*CBRDOC ($69.98)?
+       ❓ What category for: #4 SQ*DOWNTOWN MKT ($34.00)?
 
-You:   Documents
+You:   Groceries
 
-Finn:  Got it. Save all 27 items? (2 duplicates will be skipped)
+Finn:  Got it. Save all 16 items? (2 duplicates will be skipped)
 
 You:   yes
 
-Finn:  ✅ Saved 27 transactions · Total $4,782.24
-       Transport: $487.20 · Shopping: $890.40 · Food: $423.80 · Entertainment: $211.70 · Travel: $420.00 · Other: $1,349.14
+Finn:  ✅ Saved 16 transactions · Total $2,340.00
+       Transport: $210.50 · Shopping: $380.00 · Food: $195.00 · Entertainment: $95.99 · Travel: $320.00 · Other: $1,138.51
 ```
 
-The "Resumo da Fatura" line reconciles the invoice math: `Lançamentos + Encargos + Saldo financiado = Total`. Finn stores the Encargos and Saldo financiado as signed rows so `SELECT SUM(amount)` always equals the invoice total.
+The "Invoice Summary" line reconciles the invoice math: `Purchases + Interest + Financed balance = Total due`. Finn stores the interest and financed balance as signed rows so `SELECT SUM(amount)` always equals the invoice total.
 
 For image-based (scanned) PDFs, Finn automatically falls back to GPT-4.1 Vision OCR — same output, no extra steps for the user.
 
@@ -296,10 +296,10 @@ if (pdfText.trim().length < 100) {
 Bank statement PDFs garble the credit/debit columns — document reference numbers get concatenated with amounts. A real example:
 
 ```
-PAGTO ELETRON COBRANCA 00000401.603,27165.730,05
+ELECTRONIC PAYMENT REF 00000087.240,00312.490,55
 ```
 
-Parsing the column directly would read `$401,603.27`. The running balance (`saldo`) at the end of each line is always clean, so instead of parsing the column value, I compute it from context:
+Parsing the column directly would read `$87,240.00`. The running balance at the end of each line is always clean, so instead of parsing the column value, I compute it from context:
 
 ```typescript
 const saldo = amounts[amounts.length - 1].value  // always reliable
@@ -307,7 +307,7 @@ const txAmount = Math.abs(saldo - prevSaldo)       // the actual transaction amo
 const isCredit = saldo > prevSaldo                 // direction from balance movement
 ```
 
-This produced 43 correct transactions from a real bank statement, including a $1,828.80 card payment that exactly matched the credit card invoice imported separately. ✅
+This produced 38 correct transactions from a real bank statement, including a card payment that exactly matched the credit card invoice imported separately. ✅
 
 ### Invoice Math Reconciliation
 
@@ -317,7 +317,7 @@ Itaú Mastercard invoices include a "Resumo da Fatura" table with this formula:
 Lançamentos atuais + Encargos (interest) + Saldo financiado (financed balance) = Total da fatura
 ```
 
-Finn parses all three fields and stores Encargos and Saldo financiado as signed rows in the database. This means `SELECT SUM(amount) FROM transactions WHERE card = 'Mastercard'` always returns the exact invoice total — not just the purchases subtotal.
+Finn parses all three fields and stores interest and financed balance as signed rows in the database. This means `SELECT SUM(amount) FROM transactions WHERE card = 'Mastercard'` always returns the exact invoice total — not just the purchases subtotal.
 
 ---
 
